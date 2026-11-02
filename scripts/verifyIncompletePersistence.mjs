@@ -1,6 +1,7 @@
 import { config } from 'dotenv'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
+import path from 'node:path'
 
 config({ quiet: true })
 const { poolPromise, sql } = await import('../src/config/db.js')
@@ -48,7 +49,8 @@ try {
       report.cancelacion_http = cancel.status
       report.cuenta_desactivada_http = deactivate.status
       report.verificado = report.verificado && cancel.status === 200 && deactivate.status === 200
-      await writeFile('../frontend/cypress/evidence/final-20261009-reintento/bloqueo-persistencia-sql.json', JSON.stringify(report, null, 2))
+      const output = path.resolve(process.env.GW_EVIDENCE_DIR || '../frontend/cypress/evidence/final-20261009-reintento')
+      await writeFile(path.join(output, 'bloqueo-persistencia-sql.json'), JSON.stringify(report, null, 2))
       console.log(JSON.stringify(report, null, 2))
       if (!report.verificado) process.exitCode = 1
     }

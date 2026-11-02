@@ -32,7 +32,7 @@ jobs:
       - name: Build backend image without publishing
         run: docker build -t greenworld-backend:ci . 2>&1 | tee reports/docker-build.log
       - name: Verify container against ephemeral SQL Server
-        run: bash tests/integration/docker-smoke.sh 2>&1 | tee reports/docker-smoke.log
+        run: bash tests/integration/docker-smoke.sh
       - name: Validate optional SonarCloud settings
         if: vars.SONAR_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         env:

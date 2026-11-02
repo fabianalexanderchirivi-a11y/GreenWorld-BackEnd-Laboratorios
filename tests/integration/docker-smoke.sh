@@ -6,10 +6,17 @@ jwt_secret="$(openssl rand -hex 32)"
 echo "::add-mask::$sql_password"
 echo "::add-mask::$jwt_secret"
 cleanup() {
+  local redaction_status=0
   docker logs gw-ci-api > reports/docker-api.log 2>&1 || true
   docker logs gw-ci-sql > reports/docker-sql.log 2>&1 || true
+  GW_CI_SQL_SECRET="$sql_password" GW_CI_JWT_SECRET="$jwt_secret" \
+    node tests/integration/redact-logs.mjs reports/docker-api.log reports/docker-sql.log || redaction_status=$?
   docker rm -f gw-ci-api gw-ci-sql >/dev/null 2>&1 || true
   docker network rm gw-ci-network >/dev/null 2>&1 || true
+  if [[ "$redaction_status" -ne 0 ]]; then
+    rm -f reports/docker-api.log reports/docker-sql.log
+    exit "$redaction_status"
+  fi
 }
 trap cleanup EXIT
 docker network create gw-ci-network >/dev/null

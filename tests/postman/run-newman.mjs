@@ -10,7 +10,7 @@ if (!['127.0.0.1', 'localhost', 'host.docker.internal'].includes(target.hostname
 }
 const collection = JSON.parse(await readFile(new URL('./GreenWorld.postman_collection.json', import.meta.url), 'utf8'))
 const dataset = JSON.parse(await readFile(new URL('./auth-ddt.json', import.meta.url), 'utf8'))
-const output = path.resolve('reports/newman')
+const output = path.resolve(process.env.GW_NEWMAN_REPORT_DIR || 'reports/newman')
 await mkdir(output, { recursive: true })
 const requests = []
 const assertions = []
