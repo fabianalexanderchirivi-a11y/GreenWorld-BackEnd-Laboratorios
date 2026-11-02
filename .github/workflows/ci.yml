@@ -1,0 +1,60 @@
+name: Backend CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: |
+          mkdir -p reports
+          npm ci 2>&1 | tee reports/npm-ci.log
+      - name: Run isolated backend tests
+        run: npm run test:ci 2>&1 | tee reports/backend-tests.log
+      - name: Validate test and CI configuration
+        run: npm run test:config 2>&1 | tee reports/configuration-validation.log
+      - name: Build backend image without publishing
+        run: docker build -t greenworld-backend:ci . 2>&1 | tee reports/docker-build.log
+      - name: Validate optional SonarCloud settings
+        if: vars.SONAR_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+        run: |
+          test -n "$SONAR_TOKEN" || { echo 'Falta SONAR_TOKEN'; exit 1; }
+          test -n "$SONAR_ORGANIZATION" || { echo 'Falta SONAR_ORGANIZATION'; exit 1; }
+          test -n "$SONAR_PROJECT_KEY" || { echo 'Falta SONAR_PROJECT_KEY'; exit 1; }
+      - name: Optional SonarCloud analysis
+        if: vars.SONAR_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >-
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+      - name: Preserve test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-reports
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14

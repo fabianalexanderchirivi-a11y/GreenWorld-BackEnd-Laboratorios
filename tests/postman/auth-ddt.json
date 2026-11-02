@@ -1,0 +1,8 @@
+[
+  { "caseId": "DDT-AUTH-01", "scenario": "valid", "expectedStatus": 200 },
+  { "caseId": "DDT-AUTH-02", "scenario": "wrong_password", "expectedStatus": 401 },
+  { "caseId": "DDT-AUTH-03", "scenario": "missing_email", "expectedStatus": 400 },
+  { "caseId": "DDT-AUTH-04", "scenario": "missing_password", "expectedStatus": 400 },
+  { "caseId": "DDT-AUTH-05", "scenario": "missing_both", "expectedStatus": 400 },
+  { "caseId": "DDT-AUTH-06", "scenario": "unknown_email", "expectedStatus": 401 }
+]
