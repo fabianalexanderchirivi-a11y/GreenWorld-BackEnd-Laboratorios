@@ -1,4 +1,5 @@
 import express from "express"
+import { verificarToken,verificarAdmin } from '../middleware/authMiddleware.js'
 import {
     getModulos,
     addModulo,
@@ -9,8 +10,9 @@ import {
 const router = express.Router()
 
 router.get("/modulos", getModulos)
-router.post("/modulos", addModulo)
-router.put("/modulos/:id", updateModulo)
-router.delete("/modulos/:id", deleteModulo)
+router.get('/modulos/admin',verificarToken,verificarAdmin,getModulos)
+router.post("/modulos", verificarToken,verificarAdmin,addModulo)
+router.put("/modulos/:id", verificarToken,verificarAdmin,updateModulo)
+router.delete("/modulos/:id", verificarToken,verificarAdmin,deleteModulo)
 
 export default router

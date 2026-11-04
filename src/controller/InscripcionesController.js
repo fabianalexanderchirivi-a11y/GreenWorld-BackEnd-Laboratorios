@@ -243,7 +243,7 @@ const startCourse = async (req, res) => {
     } catch (error) {
         const mensajeError = obtenerMensajeError(error)
 
-        return res.status(500).json({
+        return res.status(error.status||500).json({
             success: false,
             message: mensajeError || "Error al iniciar el curso",
             error: mensajeError
@@ -284,10 +284,10 @@ const updateCourseProgress = async (req, res) => {
     } catch (error) {
         const mensajeError = obtenerMensajeError(error)
 
-        return res.status(500).json({
+        return res.status(error.status||500).json({
             success: false,
-            message: mensajeError || "Error al actualizar el progreso",
-            error: mensajeError
+            message: error.status ? mensajeError : "No se pudo actualizar el progreso",
+
         })
     }
 }

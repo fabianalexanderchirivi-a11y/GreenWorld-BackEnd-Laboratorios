@@ -10,6 +10,7 @@ import CertificadoRouter from "./routes/CertificadoRouter.js"
 import ModulosRouter from "./routes/ModulosRouter.js"
 import InscripcionesRouter from "./routes/InscripcionesRouter.js"
 import RetosRouter from "./routes/RetosRouter.js"
+import LearningRouter from "./routes/LearningRouter.js"
 
 dotenv.config()
 
@@ -28,6 +29,7 @@ app.use("/api", CertificadoRouter)
 app.use("/api", ModulosRouter)
 app.use("/api", InscripcionesRouter)
 app.use("/api", RetosRouter)
+app.use("/api", LearningRouter)
 app.use(express.static(frontendDistPath))
 
 app.get(/^(?!\/api).*/, (req, res) => {

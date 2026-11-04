@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "Green World - API real y DDT",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar con auth-ddt.json. Crea una cuenta sintética por iteración, valida API real y desactiva su propia cuenta con DELETE /usuarios/me. No borra información SQL ni utiliza cuentas existentes."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4000/api"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Crear cuenta controlada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const id = pm.variables.replaceIn('{{$guid}}');",
+              "pm.collectionVariables.set('fixture_email', 'gw-lab-' + id + '@example.test');",
+              "pm.collectionVariables.set('fixture_password', pm.variables.replaceIn('{{$guid}}'));",
+              "pm.collectionVariables.unset('session_token');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nombre\":\"Prueba\",\"apellido\":\"Laboratorio\",\"correo\":\"{{fixture_email}}\",\"contrasena\":\"{{fixture_password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "02 Login DDT",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const scenario = pm.iterationData.get('scenario');",
+              "if (!scenario) throw new Error('Selecciona auth-ddt.json como dataset del Runner');",
+              "let email = pm.collectionVariables.get('fixture_email');",
+              "let password = pm.collectionVariables.get('fixture_password');",
+              "if (scenario === 'wrong_password') password += '-incorrecta';",
+              "if (scenario === 'unknown_email') email = 'unknown-' + pm.variables.replaceIn('{{$guid}}') + '@example.test';",
+              "if (['missing_email', 'missing_both'].includes(scenario)) email = '';",
+              "if (['missing_password', 'missing_both'].includes(scenario)) password = '';",
+              "pm.variables.set('case_email', email);",
+              "pm.variables.set('case_password', password);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP esperado del dataset', () => pm.response.to.have.status(Number(pm.iterationData.get('expectedStatus'))));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});",
+              "const positive = Number(pm.iterationData.get('expectedStatus')) === 200;",
+              "pm.test('Resultado de autenticacion esperado', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.success).to.equal(positive);",
+              "  if (positive) pm.expect(typeof body.token === 'string').to.equal(true);",
+              "  else pm.expect(body).not.to.have.property('token');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"correo\":\"{{case_email}}\",\"contrasena\":\"{{case_password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "03 Abrir sesion para operaciones propias",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});",
+              "const body = pm.response.json();",
+              "pm.test('Sesion y usuario sin hash', () => {",
+              "  pm.expect(typeof body.token === 'string' && body.token.length > 0).to.equal(true);",
+              "  pm.expect(body.usuario).to.have.property('id_usuario');",
+              "  pm.expect(body.usuario).not.to.have.property('contrasena');",
+              "});",
+              "if (body.success && body.token) pm.collectionVariables.set('session_token', body.token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"correo\":\"{{fixture_email}}\",\"contrasena\":\"{{fixture_password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "04 Consultar cursos reales",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});",
+              "pm.test('Lista de cursos', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/courses"
+      }
+    },
+    {
+      "name": "05 Consultar inscripciones propias",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});",
+              "pm.test('Cuenta nueva sin inscripciones', () => pm.expect(pm.response.json().data).to.deep.equal([]));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{session_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/usuarios/me/cursos"
+      }
+    },
+    {
+      "name": "06 Actualizar perfil propio",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});",
+              "pm.test('Perfil actualizado', () => pm.expect(pm.response.json().data.nombre).to.equal('Prueba DDT'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{session_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/usuarios/me",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nombre\":\"Prueba DDT\",\"apellido\":\"Laboratorio\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "07 Desactivar cuenta propia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});",
+              "pm.test('Cuenta inactiva', () => pm.expect(pm.response.json().data.estado.toLowerCase()).to.equal('inactivo'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{session_token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/usuarios/me"
+      }
+    },
+    {
+      "name": "08 Confirmar bloqueo de cuenta desactivada",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "pm.test('JSON con estructura esperada', () => {",
+              "  pm.response.to.have.jsonSchema({ type: 'object', required: ['success'], properties: { success: { type: 'boolean' } } });",
+              "});",
+              "pm.test('Sin nueva sesion', () => pm.expect(pm.response.json()).not.to.have.property('token'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"correo\":\"{{fixture_email}}\",\"contrasena\":\"{{fixture_password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

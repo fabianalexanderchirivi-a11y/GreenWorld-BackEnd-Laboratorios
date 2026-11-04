@@ -5,7 +5,7 @@ import path from 'node:path'
 config({ path: path.resolve('../frontend/cypress/evidence/private/.env.final'), quiet: true })
 config({ quiet: true })
 const { poolPromise, sql } = await import('../src/config/db.js')
-const output = path.resolve('../frontend/cypress/evidence/final-20261009-reintento')
+const output = path.resolve(process.env.GW_EVIDENCE_DIR || '../frontend/cypress/evidence/final-20261009-reintento')
 try {
   const loginResponse = await fetch('http://127.0.0.1:4000/api/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

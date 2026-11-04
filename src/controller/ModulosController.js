@@ -28,13 +28,13 @@ const prepararModulo = (body) => {
     const ordenModulo = validarEnteroPositivo(body.orden_modulo, "orden_modulo")
     const modulo = {
         id_curso: idCurso.valor,
-        titulo: body.titulo?.trim(),
-        descripcion: body.descripcion?.trim(),
-        contenido: body.contenido?.trim(),
-        video_url: body.video_url?.trim(),
+        titulo: (typeof body.titulo==='string'?body.titulo.trim():''),
+        descripcion: (typeof body.descripcion==='string'?body.descripcion.trim():''),
+        contenido: typeof body.contenido==='string'?body.contenido.trim():'',
+        video_url: typeof body.video_url==='string'?body.video_url.trim():'',
         orden_modulo: ordenModulo.valor,
-        duracion_estimada: body.duracion_estimada?.trim(),
-        estado: body.estado?.trim()
+        duracion_estimada: (typeof body.duracion_estimada==='string'?body.duracion_estimada.trim():''),
+        estado: (typeof body.estado==='string'?body.estado.trim():'')
     }
 
     const errores = []
@@ -43,11 +43,15 @@ const prepararModulo = (body) => {
     if (ordenModulo.error) errores.push(ordenModulo.error)
 
     Object.entries(modulo).forEach(([key, value]) => {
-        if (value === undefined || value === null || value === "") {
+        if (!["contenido","video_url","descripcion","duracion_estimada"].includes(key) && (value === undefined || value === null || value === "")) {
             errores.push(`Falta ${key}`)
         }
     })
 
+    if(!modulo.contenido&&!modulo.video_url)errores.push('Agrega contenido de texto o un video')
+    if(modulo.video_url&&!/^https:\/\//i.test(modulo.video_url))errores.push('La dirección del video debe usar HTTPS')
+    if(!['disponible','oculto'].includes(modulo.estado))errores.push('El estado debe ser disponible u oculto')
+    if((modulo.titulo||'').length>150)errores.push('El título admite hasta 150 caracteres')
     return { modulo, errores }
 }
 
@@ -58,7 +62,7 @@ const getModulos = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Modulos obtenidos correctamente",
-            data: modulos
+            data: req.usuario?.rol==='admin'?modulos:modulos.filter(m=>m.estado==='disponible').map(({contenido,video_url,...m})=>m)
         })
     } catch (error) {
         return res.status(500).json({
@@ -90,10 +94,9 @@ const addModulo = async (req, res) => {
     } catch (error) {
         const mensajeError = obtenerMensajeError(error)
 
-        return res.status(500).json({
+        return res.status(error.status||500).json({
             success: false,
-            message: mensajeError || "Error al crear el modulo",
-            error: mensajeError
+            message: error.status ? mensajeError : "No se pudo crear el módulo. Revisa los datos e intenta de nuevo."
         })
     }
 }
@@ -127,12 +130,11 @@ const updateModulo = async (req, res) => {
         })
     } catch (error) {
         const mensajeError = obtenerMensajeError(error)
-        const status = esNoEncontrado(mensajeError) ? 404 : 500
+        const status = error.status||(esNoEncontrado(mensajeError) ? 404 : 500)
 
         return res.status(status).json({
             success: false,
-            message: mensajeError || "Error al actualizar el modulo",
-            error: mensajeError
+            message: error.status ? mensajeError : "No se pudo actualizar el módulo."
         })
     }
 }
@@ -157,12 +159,11 @@ const deleteModulo = async (req, res) => {
         })
     } catch (error) {
         const mensajeError = obtenerMensajeError(error)
-        const status = esNoEncontrado(mensajeError) ? 404 : 500
+        const status = error.status||(esNoEncontrado(mensajeError) ? 404 : 500)
 
         return res.status(status).json({
             success: false,
-            message: mensajeError || "Error al eliminar el modulo",
-            error: mensajeError
+            message: error.status ? mensajeError : "No se pudo desactivar el módulo."
         })
     }
 }
