@@ -1,0 +1,76 @@
+{
+  "fecha": "2026-11-03T23:58:36.864Z",
+  "zona_horaria": "America/Bogota",
+  "ejecuciones_completas_lanzadas": 1,
+  "reintentos_automaticos": 0,
+  "exit_code": 0,
+  "resultados": [
+    {
+      "id": "TC-GW02-01",
+      "spec": "TC-GW02-01-iniciar-curso.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    },
+    {
+      "id": "TC-GW02-02",
+      "spec": "TC-GW02-02-finalizar-curso.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    },
+    {
+      "id": "TC-GW03-01",
+      "spec": "TC-GW03-01-login.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    },
+    {
+      "id": "TC-GW03-02",
+      "spec": "TC-GW03-02-credenciales-incorrectas.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    },
+    {
+      "id": "TC-GW03-03",
+      "spec": "TC-GW03-03-campos-obligatorios.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    },
+    {
+      "id": "TC-GW08-01",
+      "spec": "TC-GW08-01-descargar-certificado.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    },
+    {
+      "id": "TC-GW08-02",
+      "spec": "TC-GW08-02-bloquear-certificado.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    },
+    {
+      "id": "TC-GW09-01",
+      "spec": "TC-GW09-01-progreso.cy.js",
+      "pruebas": 1,
+      "pasa": 1,
+      "falla": 0,
+      "estado": "Pasa"
+    }
+  ],
+  "pasa": 8,
+  "falla": 0,
+  "alcance": "Frontend, backend y SQL reales; módulos realizados solo mediante UI; sin respuestas simuladas"
+}

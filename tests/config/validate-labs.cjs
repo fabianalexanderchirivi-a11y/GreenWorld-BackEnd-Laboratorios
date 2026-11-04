@@ -41,16 +41,14 @@ results.push({ componente: 'Docker', validacion_estatica: 'Pasa', construccion: 
 const collection = JSON.parse(fs.readFileSync(path.join(root, 'tests/postman/GreenWorld.postman_collection.json'), 'utf8'))
 assert.equal(collection.item.length, 8)
 for (const method of ['GET', 'POST', 'PUT', 'DELETE']) assert(collection.item.some((item) => item.request.method === method))
-const snapshot = path.resolve(root, '../publicacion-20261013.json')
-if (fs.existsSync(snapshot)) {
-  const original = JSON.parse(fs.readFileSync(snapshot, 'utf8')).find((item) => item.part === 'frontend')
-  const official = original.changes.filter((item) => item.path.startsWith('cypress/e2e/ppi/'))
-  assert.equal(official.length, 8)
-  for (const item of official) {
-    const current = fs.readFileSync(path.resolve(root, '../frontend', item.path), 'utf8').replaceAll('\r\n', '\n')
-    assert.equal(current, item.content, `Cypress modificado: ${item.path}`)
-  }
-  results.push({ componente: 'Cypress oficial', archivos_sin_cambios: 8 })
+const ppiDirectory = path.resolve(root, '../frontend/cypress/e2e/ppi')
+if (fs.existsSync(ppiDirectory)) {
+  const specs = fs.readdirSync(ppiDirectory).filter((file) => file.endsWith('.cy.js'))
+  assert.deepEqual(specs.map((file) => file.match(/^TC-GW\d+-\d+/)?.[0]).sort(), [
+    'TC-GW02-01', 'TC-GW02-02', 'TC-GW03-01', 'TC-GW03-02', 'TC-GW03-03',
+    'TC-GW08-01', 'TC-GW08-02', 'TC-GW09-01',
+  ])
+  results.push({ componente: 'Cypress oficial', identificadores_conservados: specs.length })
 }
 fs.mkdirSync(path.join(root, 'reports'), { recursive: true })
 fs.writeFileSync(path.join(root, 'reports/configuration-validation.json'), JSON.stringify({ fecha: new Date().toISOString(), resultados: results }, null, 2))

@@ -75,16 +75,18 @@ const listarCursosPorUsuario = async (id_usuario) => {
                     c.nivel,
                     c.categoria,
                     c.estado AS estado_curso,
-                    CASE
-                        WHEN i.estado = 'completado' THEN 'terminado'
-                        ELSE i.estado
-                    END AS estado_progreso,
-                    i.progreso_general AS porcentaje_avance,
+                    CASE WHEN a.total>0 AND a.total=a.completados THEN 'terminado' ELSE 'en_progreso' END AS estado_progreso,
+                    CASE WHEN a.total>0 THEN CAST(a.completados*100.0/a.total AS DECIMAL(5,2)) ELSE 0 END AS porcentaje_avance,
+                    a.total AS total_modulos,a.completados AS modulos_completados,
+                    CASE WHEN a.total>0 AND a.total=a.completados THEN 1 ELSE 0 END AS finalizacion_valida,
+                    CASE WHEN i.estado='completado' AND (a.total=0 OR a.total<>a.completados) THEN 1 ELSE 0 END AS finalizacion_historica_sin_validar,
+                    CASE WHEN a.total>0 AND a.total=a.completados THEN (SELECT TOP 1 id_certificado FROM dbo.certificados ce WHERE ce.id_inscripcion=i.id_inscripcion) END AS id_certificado,
                     i.fecha_inscripcion AS fecha_inicio,
                     i.fecha_ultima_actividad,
                     i.fecha_finalizacion
                 FROM dbo.inscripciones i
                 INNER JOIN dbo.cursos c ON c.id_curso = i.id_curso
+                OUTER APPLY(SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN pm.completado=1 AND pm.porcentaje=100 THEN 1 ELSE 0 END),0) AS completados FROM dbo.modulos m LEFT JOIN dbo.progreso_modulos pm ON pm.id_modulo=m.id_modulo AND pm.id_inscripcion=i.id_inscripcion WHERE m.id_curso=i.id_curso) a
                 WHERE i.id_usuario = @id_usuario
                   AND i.estado IN ('en_progreso', 'completado')
                 ORDER BY i.fecha_ultima_actividad DESC, i.fecha_inscripcion DESC
@@ -159,6 +161,8 @@ const listarInscripcionesRetosAdmin = async () => {
 const iniciarCursoUsuario = async (id_usuario, id_curso) => {
     try {
         const con = await poolPromise
+        const available=await con.request().input('curso',sql.Int,id_curso).input('usuario',sql.Int,id_usuario).query("SELECT id_curso FROM dbo.cursos WHERE id_curso=@curso AND estado='publicado' AND EXISTS(SELECT 1 FROM dbo.usuarios WHERE id_usuario=@usuario AND estado='activo')")
+        if(!available.recordset.length)throw Object.assign(new Error('El curso no está publicado o la cuenta no está activa'),{status:404})
         const result = await con.request()
             .input("id_usuario", sql.Int, id_usuario)
             .input("id_curso", sql.Int, id_curso)
@@ -217,74 +221,11 @@ const iniciarCursoUsuario = async (id_usuario, id_curso) => {
     }
 }
 
+// El cliente ya no puede fijar porcentajes o crear una finalización directa.
 const actualizarProgresoCursoUsuario = async (id_usuario, id_curso, progreso) => {
-    const estado = progreso.estado_progreso === "terminado" ? "completado" : "en_progreso"
-    const porcentaje = estado === "completado"
-        ? 100
-        : Number(progreso.porcentaje_avance ?? 0)
-
-    try {
-        const con = await poolPromise
-        const result = await con.request()
-            .input("id_usuario", sql.Int, id_usuario)
-            .input("id_curso", sql.Int, id_curso)
-            .input("estado", sql.NVarChar(20), estado)
-            .input("progreso_general", sql.Decimal(5, 2), porcentaje)
-            .query(`
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM dbo.inscripciones
-                    WHERE id_usuario = @id_usuario AND id_curso = @id_curso
-                )
-                BEGIN
-                    INSERT INTO dbo.inscripciones (
-                        id_usuario,
-                        id_curso,
-                        estado,
-                        progreso_general,
-                        fecha_ultima_actividad,
-                        fecha_finalizacion
-                    )
-                    VALUES (
-                        @id_usuario,
-                        @id_curso,
-                        @estado,
-                        @progreso_general,
-                        SYSDATETIME(),
-                        CASE WHEN @estado = 'completado' THEN SYSDATETIME() ELSE NULL END
-                    );
-                END
-                ELSE
-                BEGIN
-                    UPDATE dbo.inscripciones
-                    SET
-                        estado = @estado,
-                        progreso_general = @progreso_general,
-                        fecha_ultima_actividad = SYSDATETIME(),
-                        fecha_finalizacion = CASE WHEN @estado = 'completado' THEN SYSDATETIME() ELSE fecha_finalizacion END
-                    WHERE id_usuario = @id_usuario AND id_curso = @id_curso;
-                END;
-
-                SELECT TOP 1
-                    i.id_inscripcion,
-                    i.id_usuario,
-                    i.id_curso,
-                    CASE
-                        WHEN i.estado = 'completado' THEN 'terminado'
-                        ELSE i.estado
-                    END AS estado_progreso,
-                    i.progreso_general AS porcentaje_avance,
-                    i.fecha_inscripcion AS fecha_inicio,
-                    i.fecha_ultima_actividad,
-                    i.fecha_finalizacion
-                FROM dbo.inscripciones i
-                WHERE i.id_usuario = @id_usuario AND i.id_curso = @id_curso;
-            `)
-
-        return result.recordset[0] || null
-    } catch (error) {
-        throw error
-    }
+    if(progreso.estado_progreso !== 'terminado') throw Object.assign(new Error('El progreso se registra completando módulos'),{status:409})
+    const {finishLearning}=await import('./LearningModel.js')
+    return finishLearning(id_usuario,id_curso)
 }
 
 const cancelarCursoUsuario = async (id_usuario, id_curso) => {

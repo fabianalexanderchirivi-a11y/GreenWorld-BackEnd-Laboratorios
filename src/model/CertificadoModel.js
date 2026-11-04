@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { poolPromise, sql } from "../config/db.js"
+import { completionEvidence } from './LearningModel.js'
+import { requireCompletion } from '../services/learningRules.js'
 
 const errorHttp = (status, message) => Object.assign(new Error(message), { status })
 
@@ -43,6 +45,7 @@ const exigirCursoCompletado = (inscripcion) => {
     if (inscripcion.estado !== "completado" || Number(inscripcion.progreso_general) !== 100 || !inscripcion.fecha_finalizacion) {
         throw errorHttp(409, "El curso debe estar terminado al 100 % para emitir un certificado")
     }
+    if(Object.hasOwn(inscripcion,'total')) requireCompletion(inscripcion)
 }
 
 const listarCertificado = async () => {
@@ -53,6 +56,7 @@ const listarCertificado = async () => {
 
 const insertarCertificado = async (certificado) => enTransaccion(async (transaction) => {
     exigirCursoCompletado(await buscarInscripcionBloqueada(transaction, certificado.id_inscripcion))
+    requireCompletion(await completionEvidence(new sql.Request(transaction), certificado.id_inscripcion))
 
     const result = await new sql.Request(transaction)
         .input("id_inscripcion", sql.Int, certificado.id_inscripcion)
@@ -65,6 +69,7 @@ const insertarCertificado = async (certificado) => enTransaccion(async (transact
 
 const editarCertificado = async (id_certificado, certificado) => enTransaccion(async (transaction) => {
     exigirCursoCompletado(await buscarInscripcionBloqueada(transaction, certificado.id_inscripcion))
+    requireCompletion(await completionEvidence(new sql.Request(transaction), certificado.id_inscripcion))
 
     const result = await new sql.Request(transaction)
         .input("id_certificado", sql.Int, id_certificado)
@@ -98,6 +103,7 @@ const crearCertificadoDeCurso = async (id_usuario, id_curso) => enTransaccion(as
         `)
     const inscripcion = enrollmentResult.recordset[0]
     exigirCursoCompletado(inscripcion)
+    requireCompletion(await completionEvidence(new sql.Request(transaction), inscripcion.id_inscripcion))
     if (String(inscripcion.estado_usuario).toLowerCase() !== "activo") {
         throw errorHttp(403, "La cuenta no esta activa")
     }
@@ -138,7 +144,7 @@ const buscarCertificadoParaDescarga = async (id_certificado) => {
     const result = await con.request()
         .input("id_certificado", sql.Int, id_certificado)
         .query(`
-            SELECT c.id_certificado, c.codigo_certificado, c.fecha_emision,
+            SELECT c.id_certificado, c.codigo_certificado, c.fecha_emision,i.id_inscripcion,
                    i.id_usuario, i.estado, i.progreso_general, i.fecha_finalizacion,
                    u.nombre, u.apellido, u.estado AS estado_usuario,
                    cu.titulo AS curso
@@ -149,7 +155,8 @@ const buscarCertificadoParaDescarga = async (id_certificado) => {
             WHERE c.id_certificado = @id_certificado
         `)
 
-    return result.recordset[0] || null
+    const certificate=result.recordset[0] || null
+    return certificate?{...certificate,...await completionEvidence(con.request(),certificate.id_inscripcion)}:null
 }
 
 export {
